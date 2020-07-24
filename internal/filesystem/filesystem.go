@@ -1,21 +1,25 @@
 package filesystem
 
-import (
+import (	
 	"io/ioutil"
 	"log"
 	"sync"
+
+	"github.com/spf13/afero"
 )
 
 type fsystem struct {
-	mu sync.RWMutex
+	afs afero.Fs
+
+	docMeta   map[string]*documentMetadata
+	docMetaMu sync.RWMutex
 
 	logger *log.Logger
-	dirs   map[string]*dir
 }
 
 func NewFilesystem() *fsystem {
 	return &fsystem{
-		dirs:   make(map[string]*dir),
+		afs:    afero.NewMemMapFs(),
 		logger: log.New(ioutil.Discard, "", 0),
 	}
 }
@@ -24,68 +28,46 @@ func (fs *fsystem) SetLogger(logger *log.Logger) {
 	fs.logger = logger
 }
 
-func (fs *fsystem) Open(file File) error {
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	d, ok := fs.dirs[file.Dir()]
-	if !ok {
-		d = newDir()
-		fs.dirs[file.Dir()] = d
+func (fs *fsystem) CreateDocument(dh DocumentHandler, text []byte) error {
+	f, err := fs.afs.Create(dh.FullPath())
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(text)
+	if err != nil {
+		return err
 	}
 
-	f, ok := d.files[file.Filename()]
-	if !ok {
-		f = NewFile(file.FullPath(), file.Text())
+	return fs.createDocumentMetadata(dh, text)
+}
+
+func (fs *fsystem) CreateAndOpenDocument(dh DocumentHandler, text []byte) error {
+	err := fs.CreateDocument(dh, text)
+	if err != nil {
+		return err
 	}
-	f.open = true
-	f.version = file.Version()
-	d.files[file.Filename()] = f
+
+	return fs.markDocumentAsOpen(dh)
+}
+
+func (fs *fsystem) ChangeDocument(fh VersionedDocumentHandler, changes DocumentChanges) error {
+	// TODO
 	return nil
 }
 
-func (fs *fsystem) Change(fh VersionedFileHandler, changes FileChanges) error {
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	f := fs.file(fh)
-	if f == nil || !f.open {
-		return &FileNotOpenErr{fh}
-	}
-	for _, change := range changes {
-		f.applyChange(change)
-	}
-	f.SetVersion(fh.Version())
+func (fs *fsystem) CloseDocument(fh DocumentHandler) error {
+	// TODO
 	return nil
 }
 
-func (fs *fsystem) Close(fh FileHandler) error {
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
-	f := fs.file(fh)
-	if f == nil || !f.open {
-		return &FileNotOpenErr{fh}
+func (fs *fsystem) GetDocument(dh DocumentHandler) (Document, error) {
+	dm, err := fs.getDocumentMetadata(dh)
+	if err != nil {
+		return nil, err
 	}
 
-	delete(fs.dirs[fh.Dir()].files, fh.Filename())
-
-	return nil
-}
-
-func (fs *fsystem) GetFile(fh FileHandler) (File, error) {
-	f := fs.file(fh)
-	if f == nil || !f.open {
-		return nil, &FileNotOpenErr{fh}
-	}
-
-	return f, nil
-}
-
-func (fs *fsystem) file(fh FileHandler) *file {
-	d, ok := fs.dirs[fh.Dir()]
-	if !ok {
-		return nil
-	}
-	return d.files[fh.Filename()]
+	return &document{
+		meta: dm,
+		fo: fs.afs,
+	}, nil
 }

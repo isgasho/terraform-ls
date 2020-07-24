@@ -37,7 +37,7 @@ func (pb *parsedBlock) TokenAtPosition(pos hcl.Pos) (hclsyntax.Token, error) {
 	return hclsyntax.Token{}, &NoTokenFoundErr{pos}
 }
 
-func NewFile(f filesystem.File) TokenizedFile {
+func NewFile(f filesystem.Document) TokenizedFile {
 	return &file{
 		filename: f.Filename(),
 		content:  []byte(f.Text()),

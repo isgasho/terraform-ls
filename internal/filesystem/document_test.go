@@ -7,9 +7,9 @@ import (
 )
 
 func TestFile_ApplyChange_fullUpdate(t *testing.T) {
-	f := NewFile("file:///test.tf", []byte("hello world"))
+	f := NewDocumentMetadata(&testHandler{"file:///test.tf"}, []byte("hello world"))
 
-	fChange := &fileChange{
+	fChange := &testChange{
 		text: "something else",
 	}
 	err := f.applyChange(fChange)
@@ -22,13 +22,13 @@ func TestFile_ApplyChange_partialUpdate(t *testing.T) {
 	testData := []struct {
 		Name       string
 		Content    string
-		FileChange *fileChange
+		FileChange *testChange
 		Expect     string
 	}{
 		{
 			Name:    "length grow: 4",
 			Content: "hello world",
-			FileChange: &fileChange{
+			FileChange: &testChange{
 				text: "terraform",
 				rng: hcl.Range{
 					Start: hcl.Pos{
@@ -48,7 +48,7 @@ func TestFile_ApplyChange_partialUpdate(t *testing.T) {
 		{
 			Name:    "length the same",
 			Content: "hello world",
-			FileChange: &fileChange{
+			FileChange: &testChange{
 				text: "earth",
 				rng: hcl.Range{
 					Start: hcl.Pos{
@@ -68,7 +68,7 @@ func TestFile_ApplyChange_partialUpdate(t *testing.T) {
 		{
 			Name:    "length grow: -2",
 			Content: "hello world",
-			FileChange: &fileChange{
+			FileChange: &testChange{
 				text: "HCL",
 				rng: hcl.Range{
 					Start: hcl.Pos{
@@ -88,7 +88,7 @@ func TestFile_ApplyChange_partialUpdate(t *testing.T) {
 		{
 			Name:    "add utf-18 character",
 			Content: "hello world",
-			FileChange: &fileChange{
+			FileChange: &testChange{
 				text: "𐐀𐐀 ",
 				rng: hcl.Range{
 					Start: hcl.Pos{
@@ -108,7 +108,7 @@ func TestFile_ApplyChange_partialUpdate(t *testing.T) {
 		{
 			Name:    "modify when containing utf-18 character",
 			Content: "hello 𐐀𐐀 world",
-			FileChange: &fileChange{
+			FileChange: &testChange{
 				text: "aa𐐀",
 				rng: hcl.Range{
 					Start: hcl.Pos{
@@ -130,7 +130,7 @@ func TestFile_ApplyChange_partialUpdate(t *testing.T) {
 	for _, v := range testData {
 		t.Logf("[DEBUG] Testing %q", v.Name)
 
-		f := NewFile("file:///test.tf", []byte(v.Content))
+		f := NewDocumentMetadata(&testHandler{"file:///test.tf"}, []byte(v.Content))
 		err := f.applyChange(v.FileChange)
 		if err != nil {
 			t.Fatal(err)
@@ -142,15 +142,15 @@ func TestFile_ApplyChange_partialUpdate(t *testing.T) {
 	}
 }
 
-type fileChange struct {
+type testChange struct {
 	text string
 	rng  hcl.Range
 }
 
-func (fc *fileChange) Text() string {
+func (fc *testChange) Text() string {
 	return fc.text
 }
 
-func (fc *fileChange) Range() hcl.Range {
+func (fc *testChange) Range() hcl.Range {
 	return fc.rng
 }

@@ -15,5 +15,5 @@ func TextDocumentDidClose(ctx context.Context, params lsp.DidCloseTextDocumentPa
 	}
 
 	fh := ilsp.FileHandlerFromDocumentURI(params.TextDocument.URI)
-	return fs.Close(fh)
+	return fs.CloseDocument(fh)
 }

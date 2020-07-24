@@ -10,13 +10,13 @@ import (
 func TestFilesystem_Change_notOpen(t *testing.T) {
 	fs := NewFilesystem()
 
-	var changes FileChanges
-	changes = append(changes, &fileChange{})
+	var changes DocumentChanges
+	changes = append(changes, &testChange{})
 	h := &testHandler{"file:///doesnotexist"}
 
-	err := fs.Change(h, changes)
+	err := fs.ChangeDocument(h, changes)
 
-	expectedErr := &FileNotOpenErr{h}
+	expectedErr := &DocumentNotOpenErr{h}
 	if err == nil {
 		t.Fatalf("Expected error: %s", expectedErr)
 	}
@@ -30,20 +30,19 @@ func TestFilesystem_Change_closed(t *testing.T) {
 	fs := NewFilesystem()
 
 	fh := &testHandler{"file:///doesnotexist"}
-	fs.Open(&testFile{
+	fs.CreateAndOpenDocument(&testDocument{
 		testHandler: fh,
-		text:        "",
-	})
-	err := fs.Close(fh)
+	}, []byte{})
+	err := fs.CloseDocument(fh)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var changes FileChanges
-	changes = append(changes, &fileChange{})
-	err = fs.Change(fh, changes)
+	var changes DocumentChanges
+	changes = append(changes, &testChange{})
+	err = fs.ChangeDocument(fh, changes)
 
-	expectedErr := &FileNotOpenErr{fh}
+	expectedErr := &DocumentNotOpenErr{fh}
 	if err == nil {
 		t.Fatalf("Expected error: %s", expectedErr)
 	}
@@ -57,18 +56,17 @@ func TestFilesystem_Close_closed(t *testing.T) {
 	fs := NewFilesystem()
 
 	fh := &testHandler{"file:///doesnotexist"}
-	fs.Open(&testFile{
+	fs.CreateAndOpenDocument(&testDocument{
 		testHandler: fh,
-		text:        "",
-	})
-	err := fs.Close(fh)
+	}, []byte{})
+	err := fs.CloseDocument(fh)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = fs.Close(fh)
+	err = fs.CloseDocument(fh)
 
-	expectedErr := &FileNotOpenErr{fh}
+	expectedErr := &DocumentNotOpenErr{fh}
 	if err == nil {
 		t.Fatalf("Expected error: %s", expectedErr)
 	}
@@ -82,13 +80,12 @@ func TestFilesystem_Change_noChanges(t *testing.T) {
 	fs := NewFilesystem()
 
 	fh := &testHandler{"file:///test.tf"}
-	fs.Open(&testFile{
+	fs.CreateAndOpenDocument(&testDocument{
 		testHandler: fh,
-		text:        "",
-	})
+	}, []byte{})
 
-	var changes FileChanges
-	err := fs.Change(fh, changes)
+	var changes DocumentChanges
+	err := fs.ChangeDocument(fh, changes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,59 +95,56 @@ func TestFilesystem_Change_multipleChanges(t *testing.T) {
 	fs := NewFilesystem()
 
 	fh := &testHandler{"file:///test.tf"}
-	fs.Open(&testFile{
+	fs.CreateAndOpenDocument(&testDocument{
 		testHandler: fh,
-		text:        "",
-	})
+	}, []byte{})
 
-	var changes FileChanges
-	changes = append(changes, &fileChange{text: "ahoy"})
-	changes = append(changes, &fileChange{text: ""})
-	changes = append(changes, &fileChange{text: "quick brown fox jumped over\nthe lazy dog"})
-	changes = append(changes, &fileChange{text: "bye"})
+	var changes DocumentChanges
+	changes = append(changes, &testChange{text: "ahoy"})
+	changes = append(changes, &testChange{text: ""})
+	changes = append(changes, &testChange{text: "quick brown fox jumped over\nthe lazy dog"})
+	changes = append(changes, &testChange{text: "bye"})
 
-	err := fs.Change(fh, changes)
+	err := fs.ChangeDocument(fh, changes)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestFilesystem_GetFile_success(t *testing.T) {
+func TestFilesystem_GetDocument_success(t *testing.T) {
 	fs := NewFilesystem()
 
 	fh := &testHandler{"file:///test.tf"}
-	err := fs.Open(&testFile{
+	err := fs.CreateAndOpenDocument(&testDocument{
 		testHandler: fh,
-		text:        "hello world",
-	})
+	}, []byte("hello world"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := fs.GetFile(fh)
+	f, err := fs.GetDocument(fh)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expectedFile := &file{
-		content: []byte("hello world"),
-		open:    true,
+	expectedFile := &documentMetadata{
+		isOpen:    true,
 	}
 	opts := []cmp.Option{
-		cmp.AllowUnexported(file{}),
+		cmp.AllowUnexported(documentMetadata{}),
 	}
 	if diff := cmp.Diff(expectedFile, f, opts...); diff != "" {
 		t.Fatalf("File doesn't match: %s", diff)
 	}
 }
 
-func TestFilesystem_GetFile_unopenedFile(t *testing.T) {
+func TestFilesystem_GetDocument_unopenedFile(t *testing.T) {
 	fs := NewFilesystem()
 
 	fh := &testHandler{"file:///test.tf"}
-	_, err := fs.GetFile(fh)
+	_, err := fs.GetDocument(fh)
 
-	expectedErr := &FileNotOpenErr{fh}
+	expectedErr := &DocumentNotOpenErr{fh}
 	if err == nil {
 		t.Fatalf("Expected error: %s", expectedErr)
 	}
@@ -160,16 +154,16 @@ func TestFilesystem_GetFile_unopenedFile(t *testing.T) {
 	}
 }
 
-type testFile struct {
+type testDocument struct {
 	*testHandler
 	text string
 }
 
-func (f *testFile) Text() []byte {
+func (f *testDocument) Text() []byte {
 	return []byte(f.text)
 }
 
-func (f *testFile) Lines() source.Lines {
+func (f *testDocument) Lines() source.Lines {
 	return source.Lines{}
 }
 

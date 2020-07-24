@@ -20,7 +20,7 @@ func (lh *logHandler) TextDocumentDidOpen(ctx context.Context, params lsp.DidOpe
 	}
 
 	f := ilsp.FileFromDocumentItem(params.TextDocument)
-	err = fs.Open(f)
+	err = fs.CreateAndOpenDocument(f, f.Text())
 	if err != nil {
 		return err
 	}

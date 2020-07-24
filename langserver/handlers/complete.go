@@ -30,7 +30,7 @@ func (h *logHandler) TextDocumentComplete(ctx context.Context, params lsp.Comple
 
 	h.logger.Printf("Finding block at position %#v", params.TextDocumentPositionParams)
 
-	file, err := fs.GetFile(ilsp.FileHandlerFromDocumentURI(params.TextDocument.URI))
+	file, err := fs.GetDocument(ilsp.FileHandlerFromDocumentURI(params.TextDocument.URI))
 	if err != nil {
 		return list, err
 	}

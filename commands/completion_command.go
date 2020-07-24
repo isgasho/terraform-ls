@@ -84,13 +84,9 @@ func (c *CompletionCommand) Run(args []string) int {
 
 	fs := filesystem.NewFilesystem()
 	fs.SetLogger(logger)
-	fs.Open(ilsp.FileFromDocumentItem(lsp.TextDocumentItem{
-		URI:     fh.DocumentURI(),
-		Text:    string(content),
-		Version: 0,
-	}))
+	fs.CreateAndOpenDocument(fh, content)
 
-	file, err := fs.GetFile(fh)
+	file, err := fs.GetDocument(fh)
 	if err != nil {
 		c.Ui.Error(err.Error())
 		return 1
